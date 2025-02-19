@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:WinUI3Windows"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="My Other Window"
     mc:Ignorable="d">
 
     <Grid>

@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
@@ -9,8 +10,6 @@ namespace WinUI3Windows
 {
     public sealed partial class MainWindow : Window
     {
-        private MyOtherWindow _myOtherWindow;
-
         public MainWindow()
         {
             InitializeComponent();
@@ -18,8 +17,6 @@ namespace WinUI3Windows
 
         private void myButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_myOtherWindow != null)
-                return;
 
             Title = "On thread " + Environment.CurrentManagedThreadId;
             var thread = new Thread(state =>
@@ -31,27 +28,44 @@ namespace WinUI3Windows
                 WindowsXamlManager.InitializeForCurrentThread();
 
                 // create a new window
-                _myOtherWindow = new MyOtherWindow(); // some other Xaml window
-                _myOtherWindow.AppWindow.Show(true);
+                var myOtherWindow = new MyOtherWindow(); // some other Xaml window
+                myOtherWindow.AppWindow.Show(true);
+                myOtherWindow.Closed += (s, e) => myOtherWindow = null;
+
+                // send some message to the second window
+                Task.Run(async () =>
+                {
+                    for (var i = 0; i < 10; i++)
+                    {
+                        await Task.Delay(1000);
+                        if (myOtherWindow == null)
+                            return;
+
+                        myOtherWindow.DispatcherQueue.TryEnqueue(() =>
+                        {
+                            try
+                            {
+                                if (myOtherWindow == null)
+                                    return;
+
+                                myOtherWindow.Title = "#" + i + " on thread " + Environment.CurrentManagedThreadId;
+                            }
+                            catch (COMException e)
+                            {
+                                const int ERROR_INVALID_OPERATION = unchecked((int)0x800710DD);
+                                if (e.HResult != ERROR_INVALID_OPERATION) // race condition if window was closed
+                                    throw;
+                            }
+                        });
+                    }
+                });
 
                 // run message pump
                 dq.DispatcherQueue.RunEventLoop();
-            });
-            thread.IsBackground = true; // will be destroyed when main is closed, can be changed
+            })
+            { IsBackground = true }; // will be destroyed when main is closed, can be changed            
             thread.Start();
 
-            // send some message to the second window
-            Task.Run(async () =>
-            {
-                for (var i = 0; i < 10; i++)
-                {
-                    await Task.Delay(1000);
-                    _myOtherWindow.DispatcherQueue.TryEnqueue(() =>
-                    {
-                        _myOtherWindow.Title = "#" + i + " on thread " + Environment.CurrentManagedThreadId;
-                    });
-                }
-            });
         }
     }
 }
