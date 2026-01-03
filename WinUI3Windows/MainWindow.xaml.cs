@@ -15,7 +15,7 @@ namespace WinUI3Windows
             InitializeComponent();
         }
 
-        private void myButton_Click(object sender, RoutedEventArgs e)
+        private void MyButton_Click(object sender, RoutedEventArgs e)
         {
 
             Title = "On thread " + Environment.CurrentManagedThreadId;
